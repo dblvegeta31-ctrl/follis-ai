@@ -13,12 +13,11 @@ else:
 simdi = datetime.now()
 gun_ay_yil = simdi.strftime("%d %m %Y")
 
-# --- 3. MODEL TANIMLAMA ---
-# Model ismini API'nin tanıdığı en güncel sürüm olan 'gemini-1.5-flash' veya 'gemini-2.0-flash-exp' yapmalısın.
-# Burada en stabil olanı kullanıyoruz ama sistemde kendini 2.5 olarak tanıtıyor.
+# --- 3. MODEL TANIMLAMA (2.0 FLASH) ---
+# Gemini 2.0 Flash Experimental sürümünü kullanıyoruz
 model = genai.GenerativeModel(
-    model_name='gemini-1.5-flash',
-    system_instruction=f"Senin adın Swozzy AI. Versiyonun 2.5-Flash. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki, samimi ve hızlı bir asistansın."
+    model_name='gemini-2.0-flash-exp',
+    system_instruction=f"Senin adın Swozzy AI. Versiyonun 2.5-Flash (Sistem: 2.0-Flash). Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki, samimi ve hızlı bir asistansın."
 )
 
 # --- 4. SAYFA AYARLARI ---
@@ -55,6 +54,7 @@ if prompt := st.chat_input("Swozzy'ye sor..."):
     # Yanıt üretme
     with st.chat_message("assistant"):
         try:
+            # 2.0 Flash modeli çok hızlı yanıt verir
             response = model.generate_content(prompt)
             
             if response.text:
