@@ -1,43 +1,36 @@
 import streamlit as st
 import google.generativeai as genai
 
-# API Yapılandırması
+# Sadece en gerekli ayarlar
+st.set_page_config(page_title="Swozzy")
+
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("API Key Eksik!")
+    st.error("API Anahtarı Eksik!")
     st.stop()
 
-# Model Tanımı
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-# Arayüz
-st.set_page_config(page_title="Swozzy")
-
-with st.sidebar:
-    st.title("2.5-Flash")
-    if st.button("Temizle"):
-        st.session_state.messages = []
-        st.rerun()
+# Sol tarafta sadece yazı
+st.sidebar.title("2.5-Flash")
 
 st.title("Swozzy AI")
 
+# Sohbeti başlat
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Mesajları yazdır (En sade yöntemle)
 for m in st.session_state.messages:
-    with st.chat_message(m["role"]):
-        st.write(m["content"])
+    st.chat_message(m["role"]).write(m["content"])
 
-if p := st.chat_input("Swozzy'ye sor..."):
-    st.session_state.messages.append({"role": "user", "content": p})
-    with st.chat_message("user"):
-        st.write(p)
+if prompt := st.chat_input("Mesaj yaz..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.chat_message("user").write(prompt)
     
-    with st.chat_message("assistant"):
-        try:
-            r = model.generate_content(p)
-            st.write(r.text)
-            st.session_state.messages.append({"role": "assistant", "content": r.text})
-        except Exception as e:
-            st.error(f"Hata: {e}")
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(prompt)
+        st.session_state.messages.append({"role": "assistant", "content": response.text})
+        st.chat_message("assistant").write(response.text)
+    except Exception as e:
+        st.error(f"Hata: {e}")
