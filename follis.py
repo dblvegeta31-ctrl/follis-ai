@@ -1,29 +1,28 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- 1. API YAPILANDIRMASI ---
+# --- 1. API AYARI ---
 if "GOOGLE_API_KEY" in st.secrets:
-    # API anahtarını tanımla
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Secrets kısmında API anahtarı bulunamadı!")
+    st.error("Secrets kısmında API anahtarı yok!")
     st.stop()
 
-# --- 2. MODEL TANIMLAMA (HATA ÖNLEYİCİ) ---
-# 404 hatasını geçmek için en sade ve doğrudan ismi kullanıyoruz
+# --- 2. MODEL TANIMLAMA (0.7.0 UYUMLU) ---
+# 404 hatasını bitirmek için en stabil ismi kullanıyoruz
 try:
     model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash', # Başına 'models/' eklemeden dene
-        system_instruction="Sen Swozzy AI'sın. 2.5-Flash versiyonusun. Matematik sorularını adım adım açıkla."
+        model_name='gemini-1.5-flash',
+        system_instruction="Adın Swozzy AI. 2.5-Flash sürümüsün. Matematik sorularını adım adım çöz."
     )
 except Exception as e:
-    st.error(f"Model yüklenirken hata: {e}")
+    st.error(f"Model yüklenemedi: {e}")
 
 # --- 3. ARAYÜZ ---
 st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
 
 with st.sidebar:
-    st.title("2.5-Flash") # Sol taraf sadece bu
+    st.title("2.5-Flash") # Sol taraf sadeleşti
     st.divider()
     if st.button("Sohbeti Temizle"):
         st.session_state.messages = []
@@ -31,7 +30,7 @@ with st.sidebar:
 
 st.title("🤖 Swozzy AI Asistan")
 
-# --- 4. SOHBET SİSTEMİ ---
+# --- 4. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -39,6 +38,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# --- 5. MESAJ GÖNDERME ---
 if prompt := st.chat_input("Swozzy'ye sor..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -46,15 +46,12 @@ if prompt := st.chat_input("Swozzy'ye sor..."):
 
     with st.chat_message("assistant"):
         try:
-            # ÖNEMLİ: Bazı durumlarda generate_content hata verirse stream kullanmak çözebilir
+            # Yanıt alırken hata kontrolleri
             response = model.generate_content(prompt)
-            
             if response.text:
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             else:
-                st.error("Model boş yanıt döndü.")
+                st.error("Cevap boş döndü.")
         except Exception as e:
-            # Eğer yine 404 verirse, kütüphaneyi güncellememiz gerekebilir
             st.error(f"Yanıt Hatası: {str(e)}")
-            st.info("İpucu: Eğer 404 devam ediyorsa, 'requirements.txt' dosyana 'google-generativeai>=0.7.0' yazmalısın.")
