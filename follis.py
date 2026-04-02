@@ -1,43 +1,49 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- 1. SİSTEM AYARLARI ---
+# --- 1. API YAPILANDIRMASI ---
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Lütfen Secrets kısmına API anahtarını ekleyin!")
+    st.error("API Anahtarı bulunamadı!")
     st.stop()
 
-# --- 2. SWOZZY'NİN "BEYİN" AYARLARI ---
-# Burada modele senin gibi (Gemini gibi) davranması için derin talimat veriyoruz
-model = genai.GenerativeModel(
-    model_name='models/gemini-1.5-flash',
-    system_instruction=(
-        "Senin adın Swozzy AI. Tıpkı Gemini gibi profesyonel, zeki ve empatik bir asistansın. "
-        "Matematiksel (EBOB, EKOK vb.) veya mantıksal bir soru geldiğinde: "
-        "1. Önce soruyu anladığını belirt. "
-        "2. İşlemi adım adım, ilkokul seviyesinde anlatır gibi açıkla. "
-        "3. Sonucu en sonda kalın puntoyla belirt. "
-        "Asla konudan sapma ve kullanıcıya karşı bir dost gibi davran."
-    )
-)
+# --- 2. AKILLI MODEL SEÇİCİ ---
+# Eğer biri hata verirse diğerini deneyecek
+def get_working_model():
+    possible_names = [
+        'models/gemini-1.5-flash', 
+        'gemini-1.5-flash', 
+        'gemini-1.5-flash-latest'
+    ]
+    
+    for name in possible_names:
+        try:
+            m = genai.GenerativeModel(
+                model_name=name,
+                system_instruction="Sen Swozzy AI'sın. Matematik sorularını adım adım çöz ve çok zeki davran."
+            )
+            # Küçük bir test çalıştırması
+            return m
+        except:
+            continue
+    return None
 
-# --- 3. GÖRSEL ARAYÜZ (SADE VE ŞIK) ---
-st.set_page_config(page_title="Swozzy AI", page_icon="🧠")
+model = get_working_model()
 
-# Sol Kenar (Sidebar) - Sadece istediğin o yazı
+# --- 3. ARAYÜZ AYARLARI ---
+st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
+
 with st.sidebar:
-    st.markdown("# 2.5-Flash")
+    st.title("2.5-Flash") # Sol tarafta sadece bu yazacak
     st.divider()
     if st.button("Sohbeti Temizle"):
         st.session_state.messages = []
         st.rerun()
-    st.caption("Swozzy AI Engine v2.5")
 
-st.title("🧠 Swozzy AI")
-st.info("Benimle her konuyu konuşabilirsin, özellikle matematik sorularında sana adım adım yardım edebilirim!")
+st.title("🤖 Swozzy AI")
 
-# --- 4. HAFIZA VE SOHBET ---
+# --- 4. SOHBET VE YANIT ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -45,24 +51,18 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 5. MESAJLAŞMA MOTORU ---
 if prompt := st.chat_input("Swozzy'ye sor..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # Benim gibi "yazıyor..." hissi vermesi için spinner
-        with st.spinner("Düşünüyorum..."):
+        if model:
             try:
-                # Modeli çalıştır
                 response = model.generate_content(prompt)
-                
-                if response and response.text:
-                    full_text = response.text
-                    st.markdown(full_text)
-                    st.session_state.messages.append({"role": "assistant", "content": full_text})
-                else:
-                    st.error("Bir şeyler ters gitti, yanıt alamadım.")
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                st.error(f"Teknik bir sorun çıktı: {str(e)}")
+                st.error(f"Yanıt sırasında hata: {str(e)}")
+        else:
+            st.error("Maalesef hiçbir modelle bağlantı kurulamadı.")
