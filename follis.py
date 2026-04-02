@@ -1,33 +1,67 @@
-import os
+import streamlit as st
 import google.generativeai as genai
+from datetime import datetime
 
-# 1. API Anahtarını Sır (Secret) kısmından çekiyoruz
-# Bu yöntem anahtarının kodda görünmesini engeller
-api_key = os.environ.get("GEMINI_API_KEY")
-
-if not api_key:
-    print("Hata: GEMINI_API_KEY bulunamadı! Lütfen Secrets kısmına ekleyin.")
+# --- 1. GÜVENLİ API YAPILANDIRMASI ---
+if "GOOGLE_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    # 2. Yapılandırma
-    genai.configure(api_key=api_key)
+    st.error("Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY ekleyin!")
+    st.stop()
 
-    # 3. Model Ayarları (Hata almamak için güncel isim)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+# --- 2. TARİH AYARI ---
+# Sistemden gerçek zamanlı tarih alıyoruz
+simdi = datetime.now()
+gun_ay_yil = simdi.strftime("%d %m %Y")
 
-    # 4. Sohbeti başlat
-    chat = model.start_chat(history=[])
+# --- 3. MODEL TANIMLAMA (2.5 FLASH) ---
+# 404 hatasını önlemek için doğrudan çalışan 2.5 modelini kullanıyoruz
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki ve hızlı bir asistansın."
+)
 
-    print("--- Sistem Aktif: Gemini ile Konuşabilirsiniz ---")
-    
-    try:
-        while True:
-            user_msg = input("Siz: ")
-            if user_msg.lower() in ["exit", "kapat", "quit"]:
-                break
+# --- 4. SAYFA AYARLARI ---
+st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
+st.title("🤖 Swozzy AI Asistan")
+st.caption(f"📅 Tarih: {gun_ay_yil} | Versiyon: 2.5-Flash")
+
+# --- 5. SOHBET HAFIZASI ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# --- 6. MESAJLAŞMA VE YANIT ÜRETME ---
+if prompt := st.chat_input("Buraya yazın..."):
+    # Kullanıcı mesajını göster
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Yanıt üretme
+    with st.chat_message("assistant"):
+        try:
+            # Hata riskini azaltmak için en düz generateContent metodunu kullanıyoruz
+            response = model.generate_content(prompt)
             
-            # Yanıt oluşturma
-            response = chat.send_message(user_msg)
-            print(f"\nGemini: {response.text}\n")
-            
-    except Exception as e:
-        print(f"Bir sorun oluştu: {e}")
+            if response.text:
+                full_response = response.text
+                st.markdown(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+            else:
+                st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
+                
+        except Exception as e:
+            # Hata mesajını daha temiz gösterelim
+            st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
+
+# --- 7. YAN PANEL ---
+with st.sidebar:
+    if st.button("Sohbeti Temizle"):
+        st.session_state.messages = []
+        st.rerun()
+    st.divider()
+    st.write("Swozzy AI v2.5")
