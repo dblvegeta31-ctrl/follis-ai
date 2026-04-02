@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from datetime import datetime
+import time
 
 # --- 1. GÜVENLİ API YAPILANDIRMASI ---
 if "GOOGLE_API_KEY" in st.secrets:
@@ -9,24 +10,22 @@ else:
     st.error("Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY ekleyin!")
     st.stop()
 
-# --- 2. TARİH AYARI ---
-# Sistemden gerçek zamanlı tarih alıyoruz
+# --- 2. MODEL VE TARİH AYARI ---
 simdi = datetime.now()
 gun_ay_yil = simdi.strftime("%d %m %Y")
 
-# --- 3. MODEL TANIMLAMA (2.5 FLASH) ---
-# 404 hatasını önlemek için doğrudan çalışan 2.5 modelini kullanıyoruz
+# Modeli tanımlıyoruz
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
-    system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki ve hızlı bir asistansın."
+    system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız."
 )
 
-# --- 4. SAYFA AYARLARI ---
+# --- 3. SAYFA AYARLARI ---
 st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
-st.title("🤖 Swozzy AI Asistan")
-st.caption(f"📅 Tarih: {gun_ay_yil} | Versiyon: 2.5-Flash")
+st.title("🤖 Swozzy AI")
+st.caption(f"📅 {gun_ay_yil} | Ücretsiz Sürüm (Limitli)")
 
-# --- 5. SOHBET HAFIZASI ---
+# --- 4. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -34,34 +33,31 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 6. MESAJLAŞMA VE YANIT ÜRETME ---
-if prompt := st.chat_input("Buraya yazın..."):
-    # Kullanıcı mesajını göster
+# --- 5. MESAJLAŞMA ---
+if prompt := st.chat_input("Mesajınızı yazın..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Yanıt üretme
     with st.chat_message("assistant"):
         try:
-            # Hata riskini azaltmak için en düz generateContent metodunu kullanıyoruz
+            # Yanıt oluşturma
             response = model.generate_content(prompt)
             
             if response.text:
-                full_response = response.text
-                st.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            else:
-                st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
                 
         except Exception as e:
-            # Hata mesajını daha temiz gösterelim
-            st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
+            if "429" in str(e):
+                st.error("⚠️ Çok hızlı gidiyorsun! Google'ın ücretsiz limitine takıldık. Lütfen 1 dakika bekleyip tekrar dene.")
+            else:
+                st.error(f"Bir sorun oluştu: {str(e)}")
 
-# --- 7. YAN PANEL ---
+# --- 6. YAN PANEL ---
 with st.sidebar:
-    if st.button("Sohbeti Temizle"):
+    st.write("### Bilgilendirme")
+    st.warning("Ücretsiz API kullandığın için Google günde sadece 20-50 soruya izin verir.")
+    if st.button("Sohbeti Sıfırla"):
         st.session_state.messages = []
         st.rerun()
-    st.divider()
-    st.write("Swozzy AI v2.5")
