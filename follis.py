@@ -30,29 +30,29 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 4. CEVAP MOTORU (GÜNCELLENDİ) ---
+# --- 4. CEVAP MOTORU (2.5 FLASH GÜNCELLEMESİ) ---
 def ask_gemini(user_query):
     for _ in range(len(api_keys)):
         current_key = api_keys[st.session_state.key_index]
         try:
-            # Yapılandırmayı her seferinde sıfırla
             genai.configure(api_key=current_key)
             
-            # MODEL İSMİ DÜZELTİLDİ: En yalın halini kullanıyoruz
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # MODEL İSMİ GÜNCELLENDİ
+            # Eğer 'gemini-2.5-flash' 404 verirse, Google henüz bu ismi tanımlamamış demektir.
+            # Bu durumda en kararlı yeni sürüm olan 'gemini-2.0-flash' denenebilir.
+            model = genai.GenerativeModel('gemini-2.0-flash') 
             
-            # Kısa bir sistem mesajıyla dene
             response = model.generate_content(user_query)
             
             if response and response.text:
                 return response.text, "SUCCESS"
             else:
-                raise Exception("Boş cevap döndü.")
+                raise Exception("Yanıt metni boş.")
                 
         except Exception as e:
-            err_msg = str(e)
-            # Hangi anahtarın ne hata verdiğini sağ altta ufakça göster
-            st.toast(f"Anahtar {st.session_state.key_index + 1} denendi: {err_msg[:40]}...", icon="ℹ️")
+            err_msg = str(e).upper()
+            # Hangi anahtarın ne hatası verdiğini sağ altta göster
+            st.toast(f"Anahtar {st.session_state.key_index + 1} denendi: {err_msg[:30]}...", icon="⚠️")
             
             # Bir sonraki anahtara geç
             st.session_state.key_index = (st.session_state.key_index + 1) % len(api_keys)
@@ -67,14 +67,16 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        loading_box = st.empty()
-        with loading_box.container():
-            with st.spinner("Yanıt oluşturuluyor..."):
+        status_placeholder = st.empty()
+        
+        with status_placeholder.container():
+            with st.spinner("Swozzy AI yanıtlıyor..."):
                 answer, status = ask_gemini(prompt)
-        loading_box.empty()
+        
+        status_placeholder.empty()
 
         if status == "SUCCESS":
             st.markdown(answer)
             st.session_state.messages.append({"role": "assistant", "content": answer})
         elif status == "ALL_LIMITS_HIT":
-            st.error("Şu an tüm projelerden 404/429 hatası dönüyor. Lütfen API anahtarlarınızın 'Gemini API' için oluşturulduğundan emin olun.")
+            st.error("⚠️ Şu an tüm anahtarlar 404 (Model Bulunamadı) hatası veriyor. Model ismini 'gemini-pro' olarak değiştirmeyi deneyebilirsiniz.")
