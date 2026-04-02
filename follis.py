@@ -1,32 +1,43 @@
 import streamlit as st
 import google.generativeai as genai
-from datetime import datetime
 
-# --- 1. GÜVENLİ API YAPILANDIRMASI ---
+# --- 1. SİSTEM AYARLARI ---
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY ekleyin!")
+    st.error("Lütfen Secrets kısmına API anahtarını ekleyin!")
     st.stop()
 
-# --- 2. TARİH AYARI ---
-# Sistemden gerçek zamanlı tarih alıyoruz
-simdi = datetime.now()
-gun_ay_yil = simdi.strftime("%d %m %Y")
-
-# --- 3. MODEL TANIMLAMA (2.5 FLASH) ---
-# 404 hatasını önlemek için doğrudan çalışan 2.5 modelini kullanıyoruz
+# --- 2. SWOZZY'NİN "BEYİN" AYARLARI ---
+# Burada modele senin gibi (Gemini gibi) davranması için derin talimat veriyoruz
 model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
-    system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki ve hızlı bir asistansın."
+    model_name='models/gemini-1.5-flash',
+    system_instruction=(
+        "Senin adın Swozzy AI. Tıpkı Gemini gibi profesyonel, zeki ve empatik bir asistansın. "
+        "Matematiksel (EBOB, EKOK vb.) veya mantıksal bir soru geldiğinde: "
+        "1. Önce soruyu anladığını belirt. "
+        "2. İşlemi adım adım, ilkokul seviyesinde anlatır gibi açıkla. "
+        "3. Sonucu en sonda kalın puntoyla belirt. "
+        "Asla konudan sapma ve kullanıcıya karşı bir dost gibi davran."
+    )
 )
 
-# --- 4. SAYFA AYARLARI ---
-st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
-st.title("🤖 Swozzy AI Asistan")
-st.caption(f"📅 Tarih: {gun_ay_yil} | Versiyon: 2.5-Flash")
+# --- 3. GÖRSEL ARAYÜZ (SADE VE ŞIK) ---
+st.set_page_config(page_title="Swozzy AI", page_icon="🧠")
 
-# --- 5. SOHBET HAFIZASI ---
+# Sol Kenar (Sidebar) - Sadece istediğin o yazı
+with st.sidebar:
+    st.markdown("# 2.5-Flash")
+    st.divider()
+    if st.button("Sohbeti Temizle"):
+        st.session_state.messages = []
+        st.rerun()
+    st.caption("Swozzy AI Engine v2.5")
+
+st.title("🧠 Swozzy AI")
+st.info("Benimle her konuyu konuşabilirsin, özellikle matematik sorularında sana adım adım yardım edebilirim!")
+
+# --- 4. HAFIZA VE SOHBET ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -34,34 +45,24 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 6. MESAJLAŞMA VE YANIT ÜRETME ---
-if prompt := st.chat_input("Buraya yazın..."):
-    # Kullanıcı mesajını göster
+# --- 5. MESAJLAŞMA MOTORU ---
+if prompt := st.chat_input("Swozzy'ye sor..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Yanıt üretme
     with st.chat_message("assistant"):
-        try:
-            # Hata riskini azaltmak için en düz generateContent metodunu kullanıyoruz
-            response = model.generate_content(prompt)
-            
-            if response.text:
-                full_response = response.text
-                st.markdown(full_response)
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            else:
-                st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
+        # Benim gibi "yazıyor..." hissi vermesi için spinner
+        with st.spinner("Düşünüyorum..."):
+            try:
+                # Modeli çalıştır
+                response = model.generate_content(prompt)
                 
-        except Exception as e:
-            # Hata mesajını daha temiz gösterelim
-            st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
-
-# --- 7. YAN PANEL ---
-with st.sidebar:
-    if st.button("Sohbeti Temizle"):
-        st.session_state.messages = []
-        st.rerun()
-    st.divider()
-    st.write("Swozzy AI v2.5")
+                if response and response.text:
+                    full_text = response.text
+                    st.markdown(full_text)
+                    st.session_state.messages.append({"role": "assistant", "content": full_text})
+                else:
+                    st.error("Bir şeyler ters gitti, yanıt alamadım.")
+            except Exception as e:
+                st.error(f"Teknik bir sorun çıktı: {str(e)}")
