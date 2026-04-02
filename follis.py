@@ -1,37 +1,35 @@
 import streamlit as st
 import google.generativeai as genai
 
-# Sayfa yapılandırması (Hata payını sıfıra indirmek için en üste)
+# Arayüz Ayarı
 st.set_page_config(page_title="Swozzy AI")
 
-# Sol menü (Sidebar)
-st.sidebar.title("2.5-Flash")
-
-# API Anahtarı Kontrolü
-if "GOOGLE_API_KEY" not in st.secrets:
-    st.error("Hata: Secrets kısmında 'GOOGLE_API_KEY' bulunamadı!")
+# API Bağlantısı
+if "GOOGLE_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+    model = genai.GenerativeModel('gemini-pro') # En stabil model ismi
+else:
+    st.error("Secrets kısmına GOOGLE_API_KEY ekle!")
     st.stop()
 
-# Model Kurulumu
-genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-model = genai.GenerativeModel('gemini-1.5-flash')
+st.title("Swozzy AI (Güvenli Mod)")
 
-st.title("Swozzy AI")
+# Basit Hafıza Sistemi
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-# Basit mesajlaşma
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Giriş Alanı
+user_input = st.text_input("Sorunu buraya yaz ve Enter'a bas:", key="user_input")
 
-for m in st.session_state.messages:
-    st.chat_message(m["role"]).write(m["content"])
-
-if prompt := st.chat_input("Buraya yaz..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-    
+if user_input:
     try:
-        response = model.generate_content(prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.chat_message("assistant").write(response.text)
+        response = model.generate_content(user_input)
+        st.session_state.history.append({"q": user_input, "a": response.text})
     except Exception as e:
-        st.error(f"Teknik Hata: {e}")
+        st.error(f"Hata: {e}")
+
+# Mesajları Liste Halinde Yazdır (Chat balonu kullanmadan, en güvenli yol)
+for chat in reversed(st.session_state.history):
+    st.write(f"**Sen:** {chat['q']}")
+    st.info(f"**Swozzy:** {chat['a']}")
+    st.divider()
