@@ -1,45 +1,38 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- 1. SAYFA AYARLARI (JavaScript hatalarını önlemek için en üstte) ---
-st.set_page_config(page_title="Swozzy AI", page_icon="⚡", layout="centered")
+# --- 1. SAYFA AYARLARI ---
+st.set_page_config(page_title="Swozzy AI", page_icon="⚡")
 
-# --- 2. API VE MODEL YAPILANDIRMASI ---
+# --- 2. API YAPILANDIRMASI ---
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Hata: Streamlit Secrets kısmına 'GOOGLE_API_KEY' eklenmemiş!")
+    st.error("Secrets kısmına GOOGLE_API_KEY eklenmemiş!")
     st.stop()
 
-# 404 hatasını bitiren "v1beta" uyumlu model tanımı
-@st.cache_resource
-def load_model():
-    try:
-        # En güncel ve v1beta destekleyen tam model ismi
-        return genai.GenerativeModel(
-            model_name='models/gemini-1.5-flash-latest',
-            system_instruction="Senin adın Swozzy AI. 2.5-Flash sürümüsün. Matematik ve teknik soruları adım adım çözersin."
-        )
-    except Exception as e:
-        st.error(f"Model yüklenirken hata oluştu: {e}")
-        return None
+# --- 3. MODEL TANIMLAMA ---
+try:
+    # 404 hatasını önlemek için 'models/' öneki ve 'latest' takısı
+    model = genai.GenerativeModel(
+        model_name='models/gemini-1.5-flash-latest'
+    )
+except Exception as e:
+    st.error(f"Model başlatma hatası: {e}")
 
-model = load_model()
-
-# --- 3. SOHBET GEÇMİŞİ ---
+# --- 4. SOHBET GEÇMİŞİ ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 4. ARAYÜZ (SIDEBAR) ---
+# --- 5. ARAYÜZ (SIDEBAR) ---
 with st.sidebar:
     st.title("Swozzy AI")
-    st.subheader("Sürüm: 2.5-Flash")
-    if st.button("Sohbeti Sıfırla"):
+    if st.button("Sohbeti Temizle"):
         st.session_state.messages = []
         st.rerun()
 
-# --- 5. ANA EKRAN ---
-st.title("🤖 Swozzy AI Asistan")
+# --- 6. ANA EKRAN ---
+st.title("🤖 Swozzy AI")
 
 # Mesajları ekrana bas
 for message in st.session_state.messages:
@@ -47,27 +40,17 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Kullanıcı girişi
-if prompt := st.chat_input("Swozzy'ye bir şey sor..."):
-    # Kullanıcı mesajını kaydet ve göster
+if prompt := st.chat_input("Bir şey sor..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Modelden yanıt al
     with st.chat_message("assistant"):
         try:
-            if model:
-                # v1beta üzerinden üretim
-                response = model.generate_content(prompt)
-                
-                if response and response.text:
-                    output = response.text
-                    st.markdown(output)
-                    st.session_state.messages.append({"role": "assistant", "content": output})
-                else:
-                    st.warning("Modelden boş yanıt döndü. API anahtarını kontrol et.")
-            else:
-                st.error("Model hazır değil.")
+            response = model.generate_content(prompt)
+            if response.text:
+                ans = response.text
+                st.markdown(ans)
+                st.session_state.messages.append({"role": "assistant", "content": ans})
         except Exception as e:
-            # Buradaki hata 404 ise API Key kesinlikle bu modeli desteklemiyordur
-            st.error(f"Ba
+            st.error(f"Hata oluştu: {str(e)}")
