@@ -43,17 +43,16 @@ def generate_ai_response(user_prompt):
                 system_instruction=f"Adın Swozzy AI. 2026 yılındayız. Bugün: {simdi}."
             )
             response = model.generate_content(user_prompt)
-            return response.text, None # Başarılı
+            return response.text, None
             
         except Exception as e:
             if "429" in str(e):
-                # Kota doldu, bir sonrakine geç
                 st.session_state.key_index = (st.session_state.key_index + 1) % len(api_keys)
                 continue
             else:
                 return None, str(e)
             
-    return None, "QUOTA_ALL" # Hepsi doldu
+    return None, "QUOTA_ALL"
 
 # --- 5. MESAJLAŞMA AKIŞI ---
 if prompt := st.chat_input("Bir şeyler yazın..."):
@@ -61,22 +60,30 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Yanıt alanı oluşturuluyor
     with st.chat_message("assistant"):
-        with st.spinner("Düşünüyorum..."):
-            answer, error_msg = generate_ai_response(prompt)
-            
-            if answer:
-                st.markdown(answer)
-                st.session_state.messages.append({"role": "assistant", "content": answer})
-            elif error_msg == "QUOTA_ALL":
-                # GERİ SAYIM BAŞLIYOR
-                placeholder = st.empty()
-                for i in range(60, 0, -1):
-                    placeholder.error(f"⚠️ Tüm hatlar dolu! Limitlerin sıfırlanması için {i} saniye beklemen gerekiyor...")
-                    time.sleep(1)
-                placeholder.success("Süre doldu! Şimdi tekrar deneyebilirsin.")
-            else:
-                st.error(f"Bir hata oluştu: {error_msg}")
+        # "Düşünüyorum..." yazısını sadece işlem sürerken gösteren alan
+        status_placeholder = st.empty()
+        
+        with status_placeholder.container():
+            with st.spinner("Düşünüyorum..."):
+                answer, error_msg = generate_ai_response(prompt)
+        
+        # İşlem bittiğinde "Düşünüyorum..." yazısını kaldırıyoruz
+        status_placeholder.empty()
+
+        if answer:
+            st.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
+        elif error_msg == "QUOTA_ALL":
+            # Geri sayım başladığında "Düşünüyorum" yazısı zaten yukarıda empty() ile silindi
+            countdown_placeholder = st.empty()
+            for i in range(60, 0, -1):
+                countdown_placeholder.error(f"⚠️ Limit doldu! Tekrar denemek için {i} saniye bekleyin...")
+                time.sleep(1)
+            countdown_placeholder.success("Süre doldu! Şimdi tekrar yazabilirsiniz.")
+        else:
+            st.error(f"Bir hata oluştu: {error_msg}")
 
 # --- 6. YAN PANEL ---
 with st.sidebar:
