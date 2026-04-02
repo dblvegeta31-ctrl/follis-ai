@@ -3,7 +3,7 @@ import google.generativeai as genai
 
 # --- 1. AYARLAR VE API YAPILANDIRMASI ---
 # Buraya Google AI Studio'dan aldığın anahtarı yapıştır
-API_KEY = "AIzaSyAHRwxMLFwEri593oYdMMCdCJ1_pECKyeA" 
+API_KEY = "AIzaSyC8oymUWa1yMICFe0EL0DBDnOMX6Htr7Hk" 
 genai.configure(api_key=API_KEY)
 
 # Gemini 2.5 Modelini Tanımla (Senin sisteminde bu model aktif)
