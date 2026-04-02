@@ -3,107 +3,101 @@ import google.generativeai as genai
 from datetime import datetime
 import time
 
-# --- 1. AYARLAR VE ANAHTAR HAVUZU ---
-st.set_page_config(page_title="Swozzy AI Ultra", page_icon="⚡", layout="centered")
+# --- SAYFA TASARIMI ---
+st.set_page_config(page_title="Swozzy AI Ultra", page_icon="⚡")
 
-# Secrets içindeki GOOGLE_API_KEY_1'den 11'e kadar olanları tara
+# --- 10'LU ANAHTAR HAVUZUNU TOPLA ---
 api_keys = []
-for i in range(1, 12):
+for i in range(1, 11):
     key_name = f"GOOGLE_API_KEY_{i}"
     if key_name in st.secrets:
         api_keys.append(st.secrets[key_name])
 
-# Anahtar bulunamazsa durdur
 if not api_keys:
-    st.error("⚠️ Hata: API anahtarları bulunamadı! Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY_1...11 şeklinde ekleme yapın.")
+    st.error("Secrets kısmında hiç anahtar bulunamadı!")
     st.stop()
 
-# Hangi anahtarda kaldığımızı session_state ile takip et
+# Hangi anahtarda kaldığımızı hatırla
 if "key_index" not in st.session_state:
     st.session_state.key_index = 0
 
-# --- 2. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# --- ARAYÜZ ---
 st.title("⚡ Swozzy AI Ultra")
-st.caption("2026 Sürümü | 11 Kat Daha Güçlü")
+st.caption(f"10 Proje Modu Aktif | Toplam Anahtar: {len(api_keys)}")
 st.divider()
 
-# Mesajları ekrana yansıt
+# Eski mesajları göster
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 3. AKILLI CEVAP ÜRETME FONKSİYONU ---
-def get_ai_response(user_input):
-    """Bozuk anahtarları atlar ve kota bitene kadar döner."""
+# --- ZEKA MOTORU (ANAHTAR ROTASYONU) ---
+def ask_gemini(user_query):
+    # Elimizdeki 10 anahtarı da deniyoruz
     for _ in range(len(api_keys)):
         current_key = api_keys[st.session_state.key_index]
         try:
             genai.configure(api_key=current_key)
             
-            # Güncel Tarih ve Sistem Talimatı
+            # Sistem Talimatı ve Model
             simdi = datetime.now().strftime("%d %m %Y")
             model = genai.GenerativeModel(
-                model_name='gemini-2.5-flash',
-                system_instruction=f"Adın Swozzy AI. 2026 yılındayız. Bugün: {simdi}."
+                model_name='gemini-1.5-flash',
+                system_instruction=f"Adın Swozzy AI. Yıl 2026. Bugün: {simdi}."
             )
             
-            response = model.generate_content(user_input)
-            return response.text, None
+            response = model.generate_content(user_query)
+            return response.text, "SUCCESS"
             
         except Exception as e:
-            err = str(e).upper()
-            # Eğer anahtar geçersiz (Expired), yanlış (Invalid) veya kota doluysa (429)
-            if "EXPIRED" in err or "INVALID" in err or "429" in err or "API_KEY_INVALID" in err:
-                # Bir sonraki anahtara geç ve tekrar dene
+            error_msg = str(e).upper()
+            # Eğer limit (429) veya geçersiz anahtar hatası gelirse bir sonrakine geç
+            if "429" in error_msg or "INVALID" in error_msg or "EXPIRED" in error_msg:
                 st.session_state.key_index = (st.session_state.key_index + 1) % len(api_keys)
                 continue
             else:
-                # Beklenmedik başka bir hata varsa dur
-                return None, str(e)
+                return None, f"HATA: {str(e)}"
                 
-    return None, "LIMIT_REACHED"
+    return None, "ALL_LIMITS_HIT"
 
-# --- 4. MESAJLAŞMA MOTORU ---
-if prompt := st.chat_input("Swozzy AI'ya bir şeyler yaz..."):
-    # Kullanıcı mesajı
+# --- MESAJLAŞMA AKIŞI ---
+if prompt := st.chat_input("Buraya yazın..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Asistan yanıtı
     with st.chat_message("assistant"):
-        loading_placeholder = st.empty()
+        # "Düşünüyorum" yazısı için geçici kutu
+        loading_box = st.empty()
         
-        # Düşünüyorum yazısını göster
-        with loading_placeholder.container():
+        with loading_box.container():
             with st.spinner("Düşünüyorum..."):
-                answer, error_detail = get_ai_response(prompt)
+                answer, status = ask_gemini(prompt)
         
-        # İşlem bitince "Düşünüyorum..." yazısını SİL
-        loading_placeholder.empty()
+        # Cevap gelince veya hata olunca "Düşünüyorum" yazısını kaldır
+        loading_box.empty()
 
-        if answer:
+        if status == "SUCCESS":
             st.markdown(answer)
             st.session_state.messages.append({"role": "assistant", "content": answer})
-        elif error_detail == "LIMIT_REACHED":
-            # Tüm anahtarlar dolduğunda geri sayım yap
+        elif status == "ALL_LIMITS_HIT":
+            # Geri sayım
             timer_box = st.empty()
             for i in range(60, 0, -1):
-                timer_box.error(f"⚠️ Çok yoğunum! Limitlerin sıfırlanması için {i} saniye beklemelisin...")
+                timer_box.error(f"⏳ 10 anahtarın da limiti doldu! {i} saniye sonra tekrar deneyebilirsin.")
                 time.sleep(1)
             timer_box.empty()
-            st.info("Süre doldu, şimdi tekrar sorabilirsin!")
         else:
-            st.error(f"❌ Teknik bir sorun oluştu: {error_detail}")
+            st.error(status)
 
-# --- 5. YAN PANEL ---
+# --- YAN PANEL ---
 with st.sidebar:
     st.title("Swozzy AI")
     if st.button("Sohbeti Temizle"):
         st.session_state.messages = []
         st.rerun()
     st.divider()
-    st.caption("© 2026 Swozzy")
+    st.info(f"Şu anki Aktif Anahtar: {st.session_state.key_index + 1}")
