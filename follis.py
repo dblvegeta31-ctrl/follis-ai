@@ -1,68 +1,67 @@
 import streamlit as st
 import google.generativeai as genai
 from datetime import datetime
-import time
 
-# --- 1. SAYFA VE ANAHTAR AYARLARI ---
-st.set_page_config(page_title="Swozzy AI 2.5", page_icon="🚀", layout="centered")
+# --- 1. GÜVENLİ API YAPILANDIRMASI ---
+if "GOOGLE_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
+else:
+    st.error("Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY ekleyin!")
+    st.stop()
 
-# Secrets'tan 10 anahtarı güvenli bir şekilde listeye alıyoruz
-api_keys = [st.secrets[f"GOOGLE_API_KEY_{i}"] for i in range(1, 11) if f"GOOGLE_API_KEY_{i}" in st.secrets]
+# --- 2. TARİH AYARI ---
+# Sistemden gerçek zamanlı tarih alıyoruz
+simdi = datetime.now()
+gun_ay_yil = simdi.strftime("%d %m %Y")
 
-if "key_index" not in st.session_state:
-    st.session_state.key_index = 0
+# --- 3. MODEL TANIMLAMA (2.5 FLASH) ---
+# 404 hatasını önlemek için doğrudan çalışan 2.5 modelini kullanıyoruz
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki ve hızlı bir asistansın."
+)
+
+# --- 4. SAYFA AYARLARI ---
+st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
+st.title("🤖 Swozzy AI Asistan")
+st.caption(f"📅 Tarih: {gun_ay_yil} | Versiyon: 2.5-Flash")
+
+# --- 5. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# --- 2. GÖRSEL ARAYÜZ ---
-st.title("🚀 Swozzy AI v2.5")
-st.caption("Gemini 1.5 Flash Teknolojisi ile Güçlendirildi")
-st.divider()
-
-# Sohbet geçmişini ekranda göster
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 3. 1.5 FLASH MOTORU (KESİNTİSİZ MOD) ---
-def ask_swozzy(user_input):
-    # Anahtarları 2 tur (toplam 20 deneme) boyunca zorla
-    for _ in range(len(api_keys) * 2):
-        idx = st.session_state.key_index
-        try:
-            genai.configure(api_key=api_keys[idx])
-            
-            # 1.5 Flash: En hızlı ve kota dostu model
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            simdi = datetime.now().strftime("%d %B %Y")
-            # Sisteme kimlik tanımlıyoruz
-            context = f"Sen Swozzy AI'sın. Bugünün tarihi: {simdi}. Arkadaş canlısı, zeki ve çok hızlı yanıt ver."
-            
-            # Yanıtı al
-            response = model.generate_content(f"{context}\n\nKullanıcı: {user_input}")
-            
-            if response and response.text:
-                return response.text
-                
-        except Exception:
-            # Hata (Kota dolması vb.) durumunda sessizce sonraki anahtara geç
-            st.session_state.key_index = (idx + 1) % len(api_keys)
-            time.sleep(0.1) # Kısa bir es vererek Google'ı yorma
-            continue
-            
-    return "Şu an tüm hatlar çok yoğun, lütfen 10 saniye bekleyip tekrar sormayı dene."
-
-# --- 4. SOHBET AKIŞI ---
-if prompt := st.chat_input("Swozzy'ye bir şeyler sor..."):
-    # Kullanıcı mesajını ekle
+# --- 6. MESAJLAŞMA VE YANIT ÜRETME ---
+if prompt := st.chat_input("Buraya yazın..."):
+    # Kullanıcı mesajını göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Swozzy yanıtını üret
+    # Yanıt üretme
     with st.chat_message("assistant"):
-        with st.spinner(""): # Yazısız, sade yükleme simgesi
-            answer = ask_swozzy(prompt)
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
+        try:
+            # Hata riskini azaltmak için en düz generateContent metodunu kullanıyoruz
+            response = model.generate_content(prompt)
+            
+            if response.text:
+                full_response = response.text
+                st.markdown(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+            else:
+                st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
+                
+        except Exception as e:
+            # Hata mesajını daha temiz gösterelim
+            st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
+
+# --- 7. YAN PANEL ---
+with st.sidebar:
+    if st.button("Sohbeti Temizle"):
+        st.session_state.messages = []
+        st.rerun()
+    st.divider()
+    st.write("Swozzy AI v2.5")
