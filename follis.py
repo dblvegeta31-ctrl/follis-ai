@@ -2,79 +2,67 @@ import streamlit as st
 import google.generativeai as genai
 
 # --- 1. AYARLAR VE API YAPILANDIRMASI ---
-# Buraya Google AI Studio'dan aldığın anahtarı yapıştır
+# Kendi API anahtarını buraya yapıştır
 API_KEY = "AIzaSyC8oymUWa1yMICFe0EL0DBDnOMX6Htr7Hk" 
 genai.configure(api_key=API_KEY)
 
-# Gemini 2.5 Modelini Tanımla (Senin sisteminde bu model aktif)
+# Gemini 2.5 Modelini Tanımla
 model = genai.GenerativeModel('gemini-2.5-flash')
 
-# --- 2. SAYFA TASARIMI ---
+# --- 2. SAYFA TASARIMI (STANDART AYDINLIK TEMA) ---
 st.set_page_config(page_title="Swozzy AI 2.5", page_icon="⚡", layout="centered")
 
-# Görsel stil için küçük bir dokunuş
-st.markdown("""
-    <style>
-    .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 st.title("🚀 Swozzy AI v2.5")
-st.subheader("En Güncel Yapay Zeka Deneyimi")
+st.subheader("Akıllı Yapay Zeka Asistanı")
 st.divider()
 
 # --- 3. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Eski mesajları ekrana bas (Sayfa yenilense de gitmez)
+# Eski mesajları ekranda göster
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 4. MESAJLAŞMA VE DONMAYI ÖNLEYEN AKIŞ (STREAM) MODU ---
-if prompt := st.chat_input("Bir şeyler sor..."):
-    # Kullanıcı mesajını göster ve kaydet
+# --- 4. MESAJLAŞMA VE AKIŞ (STREAM) MODU ---
+if prompt := st.chat_input("Bir şeyler yaz..."):
+    # Kullanıcı mesajını kaydet ve göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     # Yapay zeka yanıt alanı
     with st.chat_message("assistant"):
-        # Boş bir alan oluşturuyoruz, kelimeler buraya tek tek dolacak
         response_placeholder = st.empty()
         full_response = ""
         
         try:
-            # stream=True sayesinde yapay zeka düşünürken donmaz, yazdıkça ekrana basar
+            # Yapay zeka cevabını üretirken donmayı engelleyen akış
             response = model.generate_content(prompt, stream=True)
             
             for chunk in response:
                 full_response += chunk.text
-                # Yazma efekti için imleç ekliyoruz
+                # Yazma efekti (imleç) ekleyerek ekrana bas
                 response_placeholder.markdown(full_response + "▌")
             
-            # Yazma işlemi bittiğinde son hali göster (imleci kaldır)
+            # Tamamlanmış hali göster
             response_placeholder.markdown(full_response)
             
-            # Cevabı hafızaya kaydet
+            # Cevabı hafızaya al
             st.session_state.messages.append({"role": "assistant", "content": full_response})
             
         except Exception as e:
-            st.error(f"Hata: {e}")
+            st.error(f"Hata oluştu: {e}")
 
-# --- 5. YAN PANEL AYARLARI ---
+# --- 5. YAN PANEL (SIDEBAR) ---
 with st.sidebar:
-    st.title("⚙️ Kontrol Paneli")
+    st.title("⚙️ Ayarlar")
     st.write("Model: **Gemini 2.5 Flash**")
-    st.write("Durum: **Çevrimiçi**")
     
-    if st.button("Sohbet Geçmişini Sil"):
+    if st.button("Sohbeti Sıfırla"):
         st.session_state.messages = []
         st.rerun()
     
     st.divider()
-    st.info("Swozzy AI, 2026'nın en hızlı yapay zeka altyapısını kullanır.")
+    st.write("Swozzy AI © 2026")
