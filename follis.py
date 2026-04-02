@@ -13,22 +13,12 @@ else:
 simdi = datetime.now()
 gun_ay_yil = simdi.strftime("%d %m %Y")
 
-# --- 3. MODEL SEÇİCİ (Hata Önleyici) ---
-def get_model():
-    # Önce 2.0'ı dene, olmazsa 1.5'e dön
-    models_to_try = ['gemini-2.0-flash-exp', 'gemini-1.5-flash']
-    
-    for m_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(
-                model_name=m_name,
-                system_instruction=f"Senin adın Swozzy AI. Bugün {gun_ay_yil} ve 2026 yılındayız. Çok zeki ve hızlısın."
-            )
-            # Küçük bir test yapalım (boş bir istek gönderiyoruz)
-            return model, m_name
-        except:
-            continue
-    return None, None
+# --- 3. MODEL TANIMLAMA (KESİN ÇALIŞAN 1.5 FLASH) ---
+# Hata almamak için anahtarınla uyumlu olan 1.5-flash modeline sabitledik.
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-flash',
+    system_instruction=f"Senin adın Swozzy AI. Versiyonun 2.5-Flash. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki, samimi ve hızlı bir asistansın."
+)
 
 # --- 4. SAYFA AYARLARI ---
 st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
@@ -37,7 +27,7 @@ st.title("🤖 Swozzy AI Asistan")
 # --- 5. YAN PANEL (SOL TARAF) ---
 with st.sidebar:
     st.title("Swozzy Dashboard")
-    st.write(f"📅 **Tarih:** {gun_ay_yil}")
+    st.write(f"📅 **Tarih:** {gun_ay_yil}") # Tarih sadece burada yazar
     st.write("🚀 **Versiyon:** 2.5-Flash")
     st.divider()
     if st.button("Sohbeti Temizle"):
@@ -56,29 +46,22 @@ for message in st.session_state.messages:
 
 # --- 7. MESAJLAŞMA VE YANIT ÜRETME ---
 if prompt := st.chat_input("Swozzy'ye sor..."):
+    # Kullanıcı mesajını göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Yanıt üretme
     with st.chat_message("assistant"):
         try:
-            # Modeli her seferinde kontrol et (en sağlam yöntem)
-            model, active_model_name = get_model()
+            response = model.generate_content(prompt)
             
-            if model:
-                response = model.generate_content(prompt)
-                if response.text:
-                    full_response = response.text
-                    st.markdown(full_response)
-                    st.session_state.messages.append({"role": "assistant", "content": full_response})
-                else:
-                    st.warning("Yanıt boş döndü.")
+            if response.text:
+                full_response = response.text
+                st.markdown(full_response)
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
             else:
-                st.error("Üzgünüm, şu an hiçbir model yanıt vermiyor. API anahtarını kontrol eder misin?")
+                st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
                 
         except Exception as e:
-            # Hata mesajını sadeleştirerek göster
-            if "404" in str(e):
-                st.error("Hata: Seçilen model anahtarınla uyumlu değil. Lütfen model ismini 1.5-flash yap.")
-            else:
-                st.error(f"Bir sorun oluştu: {str(e)}")
+            st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
