@@ -1,37 +1,43 @@
 import streamlit as st
 import google.generativeai as genai
+from datetime import datetime
 
 # --- 1. GÜVENLİ API YAPILANDIRMASI ---
-# DİKKAT: API anahtarını buraya yazmıyoruz! 
-# Streamlit Cloud panelindeki "Settings > Secrets" kısmına eklemelisin.
 try:
+    # API anahtarını Streamlit Secrets'tan çeker
     API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=API_KEY)
-except:
-    st.error("Hata: API Anahtarı (Secrets) bulunamadı! Lütfen Streamlit ayarlarından GOOGLE_API_KEY tanımlayın.")
+except Exception:
+    st.error("Hata: GOOGLE_API_KEY bulunamadı! Lütfen Streamlit Settings > Secrets kısmına anahtarınızı ekleyin.")
     st.stop()
 
-# Gemini 2.5 Modelini Tanımla
-model = genai.GenerativeModel('gemini-2.5-flash')
+# --- 2. MODEL VE SİSTEM TALİMATI ---
+# Burada robota kim olduğunu ve hangi tarihte olduğumuzu öğretiyoruz
+su_an = datetime.now().strftime("%d %B %Y")
 
-# --- 2. SAYFA TASARIMI ---
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    system_instruction=f"Senin adın Swozzy AI. 2026 yılında yaşayan, zeki ve yardımsever bir asistansın. Bugünün gerçek tarihi: {su_an}. Kullanıcı sana tarihi sorarsa bu bilgiyi kullan."
+)
+
+# --- 3. SAYFA TASARIMI ---
 st.set_page_config(page_title="Swozzy AI 2.5", page_icon="⚡", layout="centered")
 
 st.title("🚀 Swozzy AI v2.5")
-st.subheader("Güvenli ve Hızlı Yapay Zeka")
+st.caption(f"📅 Bugün: {su_an} | Model: Gemini 2.5")
 st.divider()
 
-# --- 3. SOHBET HAFIZASI ---
+# --- 4. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Eski mesajları ekranda göster
+# Eski mesajları ekrana bas
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 4. MESAJLAŞMA VE AKIŞ (STREAM) MODU ---
-if prompt := st.chat_input("Bir şeyler yaz..."):
+# --- 5. MESAJLAŞMA VE AKIŞ (STREAM) MODU ---
+if prompt := st.chat_input("Bana bir şey sor..."):
     # Kullanıcı mesajını kaydet ve göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -48,10 +54,10 @@ if prompt := st.chat_input("Bir şeyler yaz..."):
             
             for chunk in response:
                 full_response += chunk.text
-                # Yazma efekti
+                # Yazma efekti (imleç)
                 response_placeholder.markdown(full_response + "▌")
             
-            # Son hali göster
+            # Son halini göster
             response_placeholder.markdown(full_response)
             
             # Cevabı hafızaya al
@@ -60,12 +66,12 @@ if prompt := st.chat_input("Bir şeyler yaz..."):
         except Exception as e:
             st.error(f"Bir hata oluştu: {e}")
 
-# --- 5. YAN PANEL ---
+# --- 6. YAN PANEL ---
 with st.sidebar:
     st.title("⚙️ Ayarlar")
-    st.write("Model: **Gemini 2.5 Flash**")
+    st.write(f"Durum: **Aktif**")
     if st.button("Sohbeti Sıfırla"):
         st.session_state.messages = []
         st.rerun()
     st.divider()
-    st.info("Bu sürümde API anahtarı güvenli bölgede (Secrets) saklanmaktadır.")
+    st.info("Swozzy AI, güvenli API altyapısı kullanır.")
