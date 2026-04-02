@@ -1,37 +1,48 @@
 import streamlit as st
 import google.generativeai as genai
 
-# API Ayarı
+# Sayfa Ayarları
+st.set_page_config(page_title="Swozzy AI - v1beta")
+
+# 1. API YAPILANDIRMASI
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("API Key Eksik!")
+    st.error("API Anahtarı bulunamadı!")
     st.stop()
 
-# MODEL TANIMLAMA (404 hatasını çözen doğru isimler)
-# 'models/gemini-1.5-flash' veya sadece 'gemini-1.5-flash'
+# 2. v1beta ve FLASH İÇİN ÖZEL TANIMLAMA
+# 404 hatasını kırmak için tam yolu (full path) kullanıyoruz
 try:
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Model adını 'models/gemini-1.5-flash' olarak tam yazıyoruz
+    model = genai.GenerativeModel(
+        model_name='models/gemini-1.5-flash'
+    )
 except Exception as e:
-    st.error(f"Model yükleme hatası: {e}")
+    st.error(f"Model Kurulum Hatası: {e}")
 
-st.title("Swozzy AI")
+st.title("⚡ Swozzy AI (v1beta Flash)")
 
+# 3. SOHBET SİSTEMİ
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for m in st.session_state.messages:
-    st.chat_message(m["role"]).write(m["content"])
+    with st.chat_message(m["role"]):
+        st.write(m["content"])
 
-if prompt := st.chat_input("Mesajını yaz..."):
+if prompt := st.chat_input("Flash ile konuş..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-    
-    try:
-        # Yanıt alma
-        response = model.generate_content(prompt)
-        st.session_state.messages.append({"role": "assistant", "content": response.text})
-        st.chat_message("assistant").write(response.text)
-    except Exception as e:
-        # Eğer hala 404 verirse buraya düşecek
-        st.error(f"Hala 404 mü? Detay: {e}")
+    with st.chat_message("user"):
+        st.write(prompt)
+
+    with st.chat_message("assistant"):
+        try:
+            # v1beta üzerinden üretim denemesi
+            response = model.generate_content(prompt)
+            if response.text:
+                st.write(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
+        except Exception as e:
+            # Hata devam ederse teknik detayı göster
+            st.error(f"v1beta/Flash Hatası: {str(e)}")
