@@ -10,23 +10,32 @@ else:
     st.stop()
 
 # --- 2. TARİH AYARI ---
-# Sistemden gerçek zamanlı tarih alıyoruz
 simdi = datetime.now()
 gun_ay_yil = simdi.strftime("%d %m %Y")
 
-# --- 3. MODEL TANIMLAMA (2.5 FLASH) ---
-# 404 hatasını önlemek için doğrudan çalışan 2.5 modelini kullanıyoruz
+# --- 3. MODEL TANIMLAMA ---
+# En kararlı ve hızlı çalışan 1.5-flash modelini kullanıyoruz
 model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
+    model_name='gemini-1.5-flash',
     system_instruction=f"Senin adın Swozzy AI. Bugünün tarihi {gun_ay_yil} ve biz 2026 yılındayız. Çok zeki ve hızlı bir asistansın."
 )
 
 # --- 4. SAYFA AYARLARI ---
 st.set_page_config(page_title="Swozzy AI", page_icon="🤖")
 st.title("🤖 Swozzy AI Asistan")
-st.caption(f"📅 Tarih: {gun_ay_yil} | Versiyon: 2.5-Flash")
 
-# --- 5. SOHBET HAFIZASI ---
+# --- 5. YAN PANEL (SOL TARAF) ---
+with st.sidebar:
+    st.write(f"📅 **Tarih:** {gun_ay_yil}") # Tarih sadece burada yazacak
+    st.write("🚀 **Versiyon:** 2.5-Flash")
+    st.divider()
+    if st.button("Sohbeti Temizle"):
+        st.session_state.messages = []
+        st.rerun()
+    st.divider()
+    st.write("Swozzy AI v2.5")
+
+# --- 6. SOHBET HAFIZASI ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -34,8 +43,9 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- 6. MESAJLAŞMA VE YANIT ÜRETME ---
-if prompt := st.chat_input("Buraya yazın..."):
+# --- 7. MESAJLAŞMA VE YANIT ÜRETME ---
+# Arama yerine "Swozzy'ye sor..." yazısı eklendi
+if prompt := st.chat_input("Swozzy'ye sor..."):
     # Kullanıcı mesajını göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -44,7 +54,6 @@ if prompt := st.chat_input("Buraya yazın..."):
     # Yanıt üretme
     with st.chat_message("assistant"):
         try:
-            # Hata riskini azaltmak için en düz generateContent metodunu kullanıyoruz
             response = model.generate_content(prompt)
             
             if response.text:
@@ -55,13 +64,4 @@ if prompt := st.chat_input("Buraya yazın..."):
                 st.warning("Modelden boş yanıt döndü, lütfen tekrar deneyin.")
                 
         except Exception as e:
-            # Hata mesajını daha temiz gösterelim
             st.error(f"Bir sorun oluştu. Teknik detay: {str(e)}")
-
-# --- 7. YAN PANEL ---
-with st.sidebar:
-    if st.button("Sohbeti Temizle"):
-        st.session_state.messages = []
-        st.rerun()
-    st.divider()
-    st.write("Swozzy AI v2.5")
