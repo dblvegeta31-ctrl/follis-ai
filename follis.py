@@ -1,68 +1,73 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- SAYFA AYARLARI ---
-st.set_page_config(page_title="Swozzy AI", page_icon="⚡")
+# --- 1. SAYFA AYARLARI (JavaScript hatalarını önlemek için en üstte) ---
+st.set_page_config(page_title="Swozzy AI", page_icon="⚡", layout="centered")
 
-# --- API ANAHTARI KONTROLÜ ---
+# --- 2. API VE MODEL YAPILANDIRMASI ---
 if "GOOGLE_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 else:
-    st.error("Lütfen Streamlit Secrets kısmına GOOGLE_API_KEY ekleyin!")
+    st.error("Hata: Streamlit Secrets kısmına 'GOOGLE_API_KEY' eklenmemiş!")
     st.stop()
 
-# --- MODEL TANIMLAMA (v1beta ve Flash Uyumlu) ---
-# 404 hatasını önlemek için 'latest' takısını kullanıyoruz
-try:
-    model = genai.GenerativeModel(
-        model_name='gemini-1.5-flash-latest',
-        system_instruction="Senin adın Swozzy AI. 2.5-Flash sürümü gibi davran ve matematik sorularını adım adım çöz."
-    )
-except Exception as e:
-    st.error(f"Model başlatılamadı: {e}")
+# 404 hatasını bitiren "v1beta" uyumlu model tanımı
+@st.cache_resource
+def load_model():
+    try:
+        # En güncel ve v1beta destekleyen tam model ismi
+        return genai.GenerativeModel(
+            model_name='models/gemini-1.5-flash-latest',
+            system_instruction="Senin adın Swozzy AI. 2.5-Flash sürümüsün. Matematik ve teknik soruları adım adım çözersin."
+        )
+    except Exception as e:
+        st.error(f"Model yüklenirken hata oluştu: {e}")
+        return None
 
-# --- SOL PANEL (SIDEBAR) ---
-with st.sidebar:
-    st.title("Swozzy AI")
-    st.write("Sürüm: 2.5-Flash (v1beta)")
-    if st.button("Sohbeti Temizle"):
-        st.session_state.messages = []
-        st.rerun()
+model = load_model()
 
-# --- ANA EKRAN ---
-st.title("🤖 Swozzy AI Asistan")
-
-# Sohbet geçmişini başlat
+# --- 3. SOHBET GEÇMİŞİ ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Geçmiş mesajları ekrana yazdır
+# --- 4. ARAYÜZ (SIDEBAR) ---
+with st.sidebar:
+    st.title("Swozzy AI")
+    st.subheader("Sürüm: 2.5-Flash")
+    if st.button("Sohbeti Sıfırla"):
+        st.session_state.messages = []
+        st.rerun()
+
+# --- 5. ANA EKRAN ---
+st.title("🤖 Swozzy AI Asistan")
+
+# Mesajları ekrana bas
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# --- MESAJ GÖNDERME VE YANIT ALMA ---
-if prompt := st.chat_input("Bir soru sor..."):
-    # Kullanıcı mesajını ekle ve göster
+# Kullanıcı girişi
+if prompt := st.chat_input("Swozzy'ye bir şey sor..."):
+    # Kullanıcı mesajını kaydet ve göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Asistan yanıtını oluştur
+    # Modelden yanıt al
     with st.chat_message("assistant"):
         try:
-            # Yanıt üretimi
-            response = model.generate_content(prompt)
-            
-            if response.text:
-                full_response = response.text
-                st.markdown(full_response)
-                # Yanıtı hafızaya ekle
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            else:
-                st.warning("Model boş bir yanıt döndürdü.")
+            if model:
+                # v1beta üzerinden üretim
+                response = model.generate_content(prompt)
                 
+                if response and response.text:
+                    output = response.text
+                    st.markdown(output)
+                    st.session_state.messages.append({"role": "assistant", "content": output})
+                else:
+                    st.warning("Modelden boş yanıt döndü. API anahtarını kontrol et.")
+            else:
+                st.error("Model hazır değil.")
         except Exception as e:
-            # 404 veya diğer hataları burada yakalayıp kullanıcıya gösteriyoruz
-            st.error(f"Bir hata oluştu: {str(e)}")
-            st.info("İpucu: Eğer 404 hatası devam ediyorsa, lütfen Google AI Studio'dan yeni bir API Key alıp Secrets kısmını güncelleyin.")
+            # Buradaki hata 404 ise API Key kesinlikle bu modeli desteklemiyordur
+            st.error(f"Ba
