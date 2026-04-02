@@ -1,6 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
 from datetime import datetime
+import time
 
 # --- 1. 11'Lİ API ANAHTAR HAVUZU ---
 api_keys = []
@@ -13,7 +14,6 @@ if not api_keys:
     st.error("Sistem yapılandırması eksik (API Keys).")
     st.stop()
 
-# Aktif anahtar sırasını hafızada tut
 if "key_index" not in st.session_state:
     st.session_state.key_index = 0
 
@@ -24,18 +24,15 @@ st.set_page_config(page_title="Swozzy AI", page_icon="⚡", layout="centered")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Başlık ve Arayüz
 st.title("⚡ Swozzy AI")
 st.divider()
 
-# Mesaj geçmişini göster
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # --- 4. CEVAP ÜRETME FONKSİYONU ---
 def generate_ai_response(user_prompt):
-    # Tüm anahtarları sırayla dene
     for _ in range(len(api_keys)):
         current_key = api_keys[st.session_state.key_index]
         try:
@@ -45,16 +42,18 @@ def generate_ai_response(user_prompt):
                 model_name='gemini-2.5-flash',
                 system_instruction=f"Adın Swozzy AI. 2026 yılındayız. Bugün: {simdi}."
             )
-            
             response = model.generate_content(user_prompt)
-            return response.text
+            return response.text, None # Başarılı
             
-        except Exception:
-            # Hata (Kota vb.) durumunda bir sonraki anahtara geç
-            st.session_state.key_index = (st.session_state.key_index + 1) % len(api_keys)
-            continue 
+        except Exception as e:
+            if "429" in str(e):
+                # Kota doldu, bir sonrakine geç
+                st.session_state.key_index = (st.session_state.key_index + 1) % len(api_keys)
+                continue
+            else:
+                return None, str(e)
             
-    return None
+    return None, "QUOTA_ALL" # Hepsi doldu
 
 # --- 5. MESAJLAŞMA AKIŞI ---
 if prompt := st.chat_input("Bir şeyler yazın..."):
@@ -63,20 +62,25 @@ if prompt := st.chat_input("Bir şeyler yazın..."):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        # Kullanıcı anahtar değişimini görmesin diye sade bir yükleniyor simgesi
         with st.spinner("Düşünüyorum..."):
-            answer = generate_ai_response(prompt)
+            answer, error_msg = generate_ai_response(prompt)
             
             if answer:
                 st.markdown(answer)
                 st.session_state.messages.append({"role": "assistant", "content": answer})
+            elif error_msg == "QUOTA_ALL":
+                # GERİ SAYIM BAŞLIYOR
+                placeholder = st.empty()
+                for i in range(60, 0, -1):
+                    placeholder.error(f"⚠️ Tüm hatlar dolu! Limitlerin sıfırlanması için {i} saniye beklemen gerekiyor...")
+                    time.sleep(1)
+                placeholder.success("Süre doldu! Şimdi tekrar deneyebilirsin.")
             else:
-                st.error("Şu an çok yoğunum, lütfen 1 dakika sonra tekrar deneyin.")
+                st.error(f"Bir hata oluştu: {error_msg}")
 
-# --- 6. YAN PANEL (SADELEŞTİRİLMİŞ) ---
+# --- 6. YAN PANEL ---
 with st.sidebar:
     st.title("Swozzy AI")
-    st.write("Versiyon 2.5")
     if st.button("Sohbeti Temizle"):
         st.session_state.messages = []
         st.rerun()
